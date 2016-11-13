@@ -1,0 +1,14 @@
+INSERT INTO receipt_items (
+    product_number,
+    price,
+    discount,
+    quantity,
+    validation_type3,
+    receipt_id,
+    retailer_product_id,
+    created_at4,
+    matched_with_offer_at,
+    matched_customer_offer_id,
+    ext_price,
+    status)
+VALUES(%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s);
