@@ -16,17 +16,14 @@ def translate_data(data):
 def fix_columns(df):
     dont_fix = ['start_day', 'future_redemptions', 'customer_id']
     print 'fixing columns...'
-    for col in df.columns:
+    for col in [x for x in df.columns if x not in dont_fix]:
         print '   {0}'.format(col)
-        if col not in dont_fix:
-            df[col] = df.apply(lambda x: translate_data(x[col]), axis=1)
+        df[col] = df.apply(lambda x: translate_data(x[col]), axis=1)
     return df
 
 
 def days_since_last(row):
     days_since = 0
-    row = row[row.index.str.contains('day')]
-    row = row.values.tolist()[1:]
     for day in row:
         if day == 0:
             days_since += 1

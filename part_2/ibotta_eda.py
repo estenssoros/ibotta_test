@@ -1,19 +1,12 @@
 import matplotlib.pyplot as plt
 plt.style.use('ggplot')
 import pandas as pd
-from list_dicts import day_dict
-from ibotta_ml import get_data
 import subprocess
-import os
 
 
-def main():
-    df = get_data()
-    subprocess.Popen(['say', 'data processed'])
-    df.to_pickle('data/df.pickle')
+def plot_scatter_matrix():
     df = pd.read_pickle('data/df.pickle')
-    cols = df.columns.values.tolist()
-    cols.remove('future_redemptions')
+    cols = [x for x in df.columns if x not 'future_redemptions']
     fig, axs = plt.subplots(1, len(cols), figsize=(22, 4), sharey=True)
     for col, ax in zip(cols, axs):
         ax.scatter(df[col], df['future_redemptions'], alpha=0.8)
@@ -27,7 +20,7 @@ def main():
     plt.savefig(save_name)
     plt.close()
     subprocess.Popen(['open', save_name])
-    subprocess.Popen(['say', 'chart saved'])
+
 
 if __name__ == '__main__':
-    main()
+    pass
