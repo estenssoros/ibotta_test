@@ -1,30 +1,33 @@
 from __future__ import division
 import pandas as pd
-from sklearn.ensemble import RandomForestClassifier
-from sklearn.ensemble import RandomForestRegressor
-from sklearn.ensemble import AdaBoostClassifier
-from sklearn.ensemble import GradientBoostingClassifier
+import numpy as np
+from time import time
+import os
+from multiprocessing import Pool, cpu_count
+# -----------------------------------------
+from list_dicts import day_columns, day_dict
+from eda import plot_feature_ranges
+from feature_functions import *
+# -----------------------------------------
+from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor, AdaBoostClassifier, GradientBoostingClassifier
 from sklearn.cross_validation import train_test_split
 from sklearn.metrics import classification_report, r2_score
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn.grid_search import GridSearchCV
+# -----------------------------------------
 import statsmodels.api as sm
-import re
-import datetime as dt
-import numpy as np
-from feature_functions import *
-from list_dicts import day_columns, day_dict, nth, drop_cols
-from collections import OrderedDict
-from time import time
-import subprocess
-from progressbar import ProgressBar
-import matplotlib.pyplot as plt
-plt.style.use('ggplot')
-import os
+
+
+def multi_apply(arg):
+    t1 = time()
+    df_cols, func = arg
+    series = df_cols.apply(lambda x: func(x), axis=1), func.__name__
+    print '   {0} - {1:.2f} seconds'.format(func.__name__, time() - t1)
+    return series
 
 
 def get_data():
-    fname = "data/Ibotta_Marketing_Analyst_Dataset_daily.csv"
+    fname = "../data/Ibotta_Marketing_Analyst_Dataset_daily.csv"
     df = pd.read_csv(fname)
     df.pop('customer_id')
 
@@ -40,11 +43,17 @@ def get_data():
                  last_action,
                  utilization_ratio]
 
-    print 'feature engineering...'
+    cores = cpu_count()
+    print 'feature engineering... using {}/{} cores'.format(cores - 1, cores)
+    pool = Pool(processes=cores - 1)
+    df_cols = df[day_columns]
+    function_list = [(df_cols, func) for func in functions]
+    results = pool.map(multi_apply, function_list)
+    pool.close()
+    pool.join()
 
-    for func in functions:
-        print '    - {0}'.format(func.__name__)
-        df[func.__name__] = df[day_columns].apply(lambda x: func(x), axis=1)
+    for series, f_name in results:
+        df[f_name] = series
 
     print 'trimming_outliers'
     cols = [func.__name__ for func in functions]
@@ -58,13 +67,14 @@ def get_data():
     print '   - upsampling data'
     df_redeemed = df[df['redeemed'] == True]
     k = len(df) - len(df_redeemed)
-    up_sample = df_redeemed.iloc[np.random.randint(0, len(df_redeemed), size=k)]
+    up_sample = df_redeemed.iloc[
+        np.random.randint(0, len(df_redeemed), size=k)]
     df = df.append(up_sample, ignore_index=True)
 
     print '   - removing columns'
     cols = [x for x in df.columns if x not in day_columns]
     df = df[cols]
-    pickle_name = 'data/df.pickle'
+    pickle_name = '../data/df.pickle'
     df.to_pickle(pickle_name)
     print 'data saved to {0}'.format(pickle_name)
     return df
@@ -79,16 +89,18 @@ def split_data(df):
 
 
 def initialize_models():
-    estimators = OrderedDict()
-    estimators['RandomForestClassifier'] = RandomForestClassifier(n_jobs=-1, random_state=1)
-    estimators['GradientBoostingClassifier'] = GradientBoostingClassifier(random_state=1)
+    estimators = dict()
+    estimators['RandomForestClassifier'] = RandomForestClassifier(
+        n_jobs=-1, random_state=1)
+    estimators['GradientBoostingClassifier'] = GradientBoostingClassifier(
+        random_state=1)
     estimators['AdaBoostClassifier'] = AdaBoostClassifier(random_state=1)
     estimators['KNeighbors'] = KNeighborsClassifier(n_jobs=-1)
     return estimators
 
 
 def train_models():
-    df = pd.read_pickle('data/df.pickle')
+    df = pd.read_pickle('../data/df.pickle')
     if 'future_redemptions' in df.columns:
         del df['future_redemptions']
     estimators = initialize_models()
@@ -121,7 +133,7 @@ def grid_search(df, model, grid):
 
 
 def grid_search_models():
-    df = pd.read_pickle('data/df.pickle')
+    df = pd.read_pickle('../data/df.pickle')
     random_forest_grid = {'max_depth': [3, 5, None],
                           'max_features': ['sqrt'],
                           'min_samples_split': [1],
@@ -150,20 +162,20 @@ def grid_search_models():
 
 
 def train_rfc_model():
-    df = pd.read_pickle('data/df.pickle')
+    df = pd.read_pickle('../data/df.pickle')
     if 'future_redemptions' in df.columns:
-        del train_df['future_redemptions']
+        del df['future_redemptions']
     y = df.pop('redeemed').values
     X = df.values
     rf = RandomForestClassifier(n_jobs=-1, random_state=1)
     rf.fit(X, y)
-    for col, imp in zip(train_df.columns, rf.feature_importances_):
+    for col, imp in zip(df.columns, rf.feature_importances_):
         print '{0} - {1:.2f}'.format(col, imp * 100)
     return rf
 
 
 def train_rfr_model():
-    df = pd.read_pickle('data/df.pickle')
+    df = pd.read_pickle('../data/df.pickle')
     if 'redeemed' in df.columns:
         del df['redeemed']
     y = df.pop('future_redemptions').values
@@ -178,9 +190,9 @@ def train_rfr_model():
 
 
 def train_ols():
-    df = pd.read_pickle('data/df.pickle')
+    df = pd.read_pickle('../data/df.pickle')
     y_final = df.pop('future_redemptions')
-    rf = train_rf_model(df)
+    rf = train_rfc_model()
     del df['redeemed']
     df['rf_classification'] = rf.predict(df.values)
     X = sm.add_constant(df)
@@ -189,7 +201,7 @@ def train_ols():
 
 
 def test_feature_ranges():
-    df = pd.read_pickle('data/df.pickle')
+    df = pd.read_pickle('../data/df.pickle')
     del df['redeemed']
     rf = train_rfr_model(df)
     del df['future_redemptions']
@@ -197,41 +209,17 @@ def test_feature_ranges():
     for i, col in enumerate(df.columns):
         col_means = [df[x].mean() for x in df.columns]
         col_range = np.linspace(df[col].min(), df[col].max(), 100)
-        bar = ProgressBar()
-        for item in bar(col_range):
+        for item in col_range:
             col_means[i] = item
             pred = rf.predict(np.array(col_means).reshape(1, 8))[0]
             results = results.append({'feature': col,
                                       'value': item,
                                       'prediction': pred}, ignore_index=True)
-    results.to_pickle('data/results.pickle')
+    results.to_pickle('../data/results.pickle')
 
 
-def plot_feature_ranges():
-    df = pd.read_pickle('data/df.pickle')
-    del df['redeemed']
-    del df['future_redemptions']
-
-    if not os.path.isfile('data/results.pickle'):
-        test_feature_ranges()
-
-    results = pd.read_pickle('data/results.pickle')
-    fig, axs = plt.subplots(2, 4, figsize=(20, 8))
-    for col, ax in zip(df.columns, axs.flatten()):
-        x = results['value'][results['feature'] == col]
-        y = results['prediction'][results['feature'] == col]
-        ax.scatter(x, y)
-        ax.set_title(col)
-
-    plt.tight_layout()
-    save_name = 'images/feature_ranges.png'
-    plt.savefig(save_name)
-    plt.close()
-    subprocess.Popen(['open', save_name])
-
-
-def main():
-    if not os.path.isfile('data/df.pickle'):
+def main_ml():
+    if not os.path.isfile('../data/df.pickle'):
         get_data()
     train_models()
     train_rfc_model()
@@ -239,4 +227,4 @@ def main():
     plot_feature_ranges()
 
 if __name__ == '__main__':
-    main()
+    main_ml()

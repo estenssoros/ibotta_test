@@ -17,7 +17,7 @@ def fix_columns(df):
     dont_fix = ['start_day', 'future_redemptions', 'customer_id']
     print 'fixing columns...'
     for col in [x for x in df.columns if x not in dont_fix]:
-        print '   {0}'.format(col)
+        print '    {0}'.format(col)
         df[col] = df.apply(lambda x: translate_data(x[col]), axis=1)
     return df
 
