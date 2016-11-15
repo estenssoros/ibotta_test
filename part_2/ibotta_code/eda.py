@@ -3,7 +3,6 @@ plt.style.use('ggplot')
 import pandas as pd
 import subprocess
 
-
 def plot_scatter_matrix():
     df = pd.read_pickle('../data/df.pickle')
     cols = [x for x in df.columns if x != 'future_redemptions']
@@ -16,7 +15,7 @@ def plot_scatter_matrix():
     plt.ylim(0, df['future_redemptions'].max() * 1.05)
     plt.tight_layout()
 
-    save_name = 'images/scatter_matrix.png'
+    save_name = '../images/scatter_matrix.png'
     plt.savefig(save_name)
     plt.close()
     subprocess.Popen(['open', save_name])
@@ -27,10 +26,7 @@ def plot_feature_ranges():
     del df['redeemed']
     del df['future_redemptions']
 
-    if not os.path.isfile('data/results.pickle'):
-        test_feature_ranges()
-
-    results = pd.read_pickle('data/results.pickle')
+    results = pd.read_pickle('../data/results.pickle')
     fig, axs = plt.subplots(2, 4, figsize=(20, 8))
     for col, ax in zip(df.columns, axs.flatten()):
         x = results['value'][results['feature'] == col]
@@ -39,7 +35,7 @@ def plot_feature_ranges():
         ax.set_title(col)
 
     plt.tight_layout()
-    save_name = 'images/feature_ranges.png'
+    save_name = '../images/feature_ranges.png'
     plt.savefig(save_name)
     plt.close()
     subprocess.Popen(['open', save_name])

@@ -180,7 +180,6 @@ def train_rfr_model():
         del df['redeemed']
     y = df.pop('future_redemptions').values
     X = df.values
-    print X.shape
     X_train, X_test, y_train, y_test = train_test_split(X, y, random_state=42)
     rf = RandomForestRegressor(n_jobs=-1, random_state=1)
     rf.fit(X_train, y_train)
@@ -201,11 +200,13 @@ def train_ols():
 
 
 def test_feature_ranges():
+    print 'Testing feature ranges. This may take a while...'
     df = pd.read_pickle('../data/df.pickle')
     del df['redeemed']
-    rf = train_rfr_model(df)
+    rf = train_rfr_model()
     del df['future_redemptions']
     results = pd.DataFrame(columns=['feature', 'value', 'prediction'])
+
     for i, col in enumerate(df.columns):
         col_means = [df[x].mean() for x in df.columns]
         col_range = np.linspace(df[col].min(), df[col].max(), 100)
@@ -218,13 +219,15 @@ def test_feature_ranges():
     results.to_pickle('../data/results.pickle')
 
 
-def main_ml():
+def main():
     if not os.path.isfile('../data/df.pickle'):
         get_data()
     train_models()
     train_rfc_model()
     train_ols()
+    if not os.path.isfile('../data/results.pickle'):
+        test_feature_ranges()
     plot_feature_ranges()
 
 if __name__ == '__main__':
-    main_ml()
+    main()
